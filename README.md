@@ -93,6 +93,7 @@
       transition: transform 0.2s, box-shadow 0.2s;
       user-select: none;
       box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      touch-action: none;
     }
 
     .trash-item:hover {
@@ -103,6 +104,27 @@
     .trash-item.dragging {
       opacity: 0.5;
       cursor: grabbing;
+    }
+
+    .trash-item.selected {
+      transform: scale(1.1);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+      animation: pulse 1s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% {
+        box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+      }
+      50% {
+        box-shadow: 0 8px 32px rgba(76, 175, 80, 0.5);
+      }
+    }
+
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-10px); }
+      75% { transform: translateX(10px); }
     }
 
     .bins-area {
@@ -323,6 +345,7 @@
     let wrongCount = 0;
     let draggedItem = null;
     let binCounts = { recyclable: 0, organic: 0, general: 0 };
+    let selectedItem = null;
 
     function initGame() {
       currentItems = shuffleArray([...trashItems]).slice(0, 6);
@@ -358,9 +381,27 @@
         
         itemEl.addEventListener('dragstart', handleDragStart);
         itemEl.addEventListener('dragend', handleDragEnd);
+        itemEl.addEventListener('click', handleItemClick);
+        itemEl.addEventListener('touchstart', handleItemClick, { passive: true });
         
         itemsArea.appendChild(itemEl);
       });
+    }
+
+    function handleItemClick(e) {
+      e.stopPropagation();
+      const itemEl = e.currentTarget;
+      
+      if (selectedItem === itemEl) {
+        selectedItem.classList.remove('selected');
+        selectedItem = null;
+      } else {
+        if (selectedItem) {
+          selectedItem.classList.remove('selected');
+        }
+        selectedItem = itemEl;
+        itemEl.classList.add('selected');
+      }
     }
 
     function handleDragStart(e) {
@@ -396,6 +437,41 @@
       }
     }
 
+    function handleBinInteraction(bin) {
+      const item = selectedItem || draggedItem;
+      if (!item) return;
+      
+      const itemType = item.dataset.type;
+      const binType = bin.dataset.type;
+      const itemIndex = parseInt(item.dataset.index);
+      
+      if (itemType === binType) {
+        correctCount++;
+        binCounts[binType]++;
+        currentItems = currentItems.filter((_, i) => i !== itemIndex);
+        item.style.animation = 'popIn 0.3s ease';
+        setTimeout(() => {
+          selectedItem = null;
+          renderItems();
+          updateBinCounts();
+          checkWin();
+        }, 300);
+      } else {
+        wrongCount++;
+        item.style.animation = 'shake 0.5s ease';
+        setTimeout(() => {
+          if (item) item.style.animation = '';
+          if (selectedItem) {
+            selectedItem.classList.remove('selected');
+            selectedItem = null;
+          }
+        }, 500);
+      }
+      
+      updateScore();
+      draggedItem = null;
+    }
+
     const bins = document.querySelectorAll('.bin');
     bins.forEach(bin => {
       bin.addEventListener('dragover', (e) => {
@@ -410,32 +486,19 @@
       bin.addEventListener('drop', (e) => {
         e.preventDefault();
         bin.classList.remove('drag-over');
-        
-        if (draggedItem) {
-          const itemType = draggedItem.dataset.type;
-          const binType = bin.dataset.type;
-          const itemIndex = parseInt(draggedItem.dataset.index);
-          
-          if (itemType === binType) {
-            correctCount++;
-            binCounts[binType]++;
-            currentItems = currentItems.filter((_, i) => i !== itemIndex);
-            draggedItem.style.animation = 'popIn 0.3s ease';
-            setTimeout(() => {
-              renderItems();
-              updateBinCounts();
-              checkWin();
-            }, 300);
-          } else {
-            wrongCount++;
-            draggedItem.style.animation = 'shake 0.5s ease';
-            setTimeout(() => {
-              if (draggedItem) draggedItem.style.animation = '';
-            }, 500);
-          }
-          
-          updateScore();
-          draggedItem = null;
+        handleBinInteraction(bin);
+      });
+
+      bin.addEventListener('click', () => {
+        if (selectedItem) {
+          handleBinInteraction(bin);
+        }
+      });
+
+      bin.addEventListener('touchend', (e) => {
+        e.preventDefault();
+        if (selectedItem) {
+          handleBinInteraction(bin);
         }
       });
     });
@@ -586,5 +649,5 @@
     initGame();
     onConfigChange(config);
   </script>
- <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9a3791ab2611d32f',t:'MTc2Mzk3MzI4NS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9a37b25914e8e878',t:'MTc2Mzk3NDYyNC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
